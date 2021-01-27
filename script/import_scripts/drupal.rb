@@ -199,10 +199,10 @@ class ImportScripts::Drupal < ImportScripts::Base
                n.comment comment,
                fl.timestamp solved
         FROM forum_index fi
-	      LEFT JOIN node n ON fi.nid = n.nid
-	      LEFT JOIN field_data_body f ON f.entity_id = n.nid
-	      LEFT JOIN flagging fl ON fl.entity_id = n.nid AND fl.fid = 7
-	      LEFT JOIN node_counter nc ON nc.nid = n.nid
+        LEFT JOIN node n ON fi.nid = n.nid
+        LEFT JOIN field_data_body f ON f.entity_id = n.nid
+        LEFT JOIN flagging fl ON fl.entity_id = n.nid AND fl.fid = 7
+        LEFT JOIN node_counter nc ON nc.nid = n.nid
         WHERE n.type = 'forum'
         LIMIT #{BATCH_SIZE}
         OFFSET #{offset};
