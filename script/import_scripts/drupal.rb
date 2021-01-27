@@ -24,7 +24,6 @@ class ImportScripts::Drupal < ImportScripts::Base
   end
 
   def execute
-
     import_users
     import_categories
 
@@ -44,7 +43,7 @@ class ImportScripts::Drupal < ImportScripts::Base
     import_attachments
     postprocess_posts
     create_permalinks
-    import_blocked_users
+    import_muted_users
     import_gravatars
   end
 
@@ -680,8 +679,8 @@ class ImportScripts::Drupal < ImportScripts::Base
     end
   end
 
-  def import_blocked_users
-    puts "", "importing blocked users"
+  def import_muted_users
+    puts "", "importing muted users"
 
     batches(BATCH_SIZE) do |offset|
       rows = mysql_query(<<-SQL
