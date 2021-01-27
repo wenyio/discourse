@@ -85,8 +85,8 @@ class ImportScripts::Drupal < ImportScripts::Base
           name: username,
           email: email,
           created_at: Time.zone.at(user["created"]),
-          suspended_at: user["status"] == 0 ? Time.zone.now : nil,
-          suspended_till: user["status"] == 0 ? 100.years.from_now : nil
+          suspended_at: user["status"].to_i == 0 ? Time.zone.now : nil,
+          suspended_till: user["status"].to_i == 0 ? 100.years.from_now : nil
         }
       end
     end
