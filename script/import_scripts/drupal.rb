@@ -11,10 +11,12 @@ class ImportScripts::Drupal < ImportScripts::Base
   ATTACHMENT_DIR = '/root/files/upload'
 
   CATEGORY_ID = ENV['CATEGORY_ID'] || 1
-  LIKE_NODE_ID = ENV['LIKE_NODE_ID'] || 5
-  LIKE_COMMENT_ID = ENV['LIKE_COMMENT_ID'] || 4
+
+  # Flag IDs
   BOOKMARK_ID = ENV['BOOKMARK_ID'] || 1
   SUBSCRIBE_ID = ENV['SUBSCRIBE_ID'] || 2
+  LIKE_COMMENT_ID = ENV['LIKE_COMMENT_ID'] || 4
+  LIKE_NODE_ID = ENV['LIKE_NODE_ID'] || 5
 
   def initialize
     super
