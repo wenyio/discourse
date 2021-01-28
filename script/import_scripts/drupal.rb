@@ -63,7 +63,7 @@ class ImportScripts::Drupal < ImportScripts::Base
     puts '', 'importing users'
 
     total_count = mysql_query(<<~SQL).first['count']
-      SELECT count(uid) count
+      SELECT COUNT(uid) count
       FROM users
     SQL
 
@@ -304,7 +304,7 @@ class ImportScripts::Drupal < ImportScripts::Base
   def import_private_messages
     puts '', 'importing private messages'
 
-    puts '', 'building target users lookup table'
+    puts '  building target users lookup table'
 
     target_user_ids = {}
     thread_id_to_topic_id = {}
@@ -325,7 +325,7 @@ class ImportScripts::Drupal < ImportScripts::Base
       end
     end
 
-    puts '', 'importing private posts'
+    puts '  importing private posts'
 
     total_count = mysql_query(<<-SQL).first['count']
       SELECT COUNT(*) count
@@ -401,7 +401,7 @@ class ImportScripts::Drupal < ImportScripts::Base
     puts '', 'importing post likes'
 
     total_count = mysql_query(<<~SQL).first['count']
-      SELECT count(uid) count
+      SELECT COUNT(uid) count
       FROM flagging
       WHERE fid = #{LIKE_NODE_ID}
          OR fid = #{LIKE_COMMENT_ID}
@@ -445,7 +445,7 @@ class ImportScripts::Drupal < ImportScripts::Base
     puts '', 'importing bookmarks'
 
     total_count = mysql_query(<<~SQL).first['count']
-      SELECT count(uid) count
+      SELECT COUNT(uid) count
       FROM flagging
       WHERE fid = #{BOOKMARK_ID}
     SQL
@@ -484,10 +484,10 @@ class ImportScripts::Drupal < ImportScripts::Base
   end
 
   def import_subscriptions
-    puts '', 'Importing topic subscriptions...'
+    puts '', 'importing topic subscriptions...'
 
     total_count = mysql_query(<<~SQL).first['count']
-      SELECT count(uid) count
+      SELECT COUNT(uid) count
       FROM flagging
       WHERE fid = #{SUBSCRIBE_ID}
     SQL
@@ -575,7 +575,7 @@ class ImportScripts::Drupal < ImportScripts::Base
     fail_count = 0
 
     total_count = mysql_query(<<-SQL).first['count']
-      SELECT count(field_post_attachment_fid) count
+      SELECT COUNT(field_post_attachment_fid) count
       FROM field_data_field_post_attachment
     SQL
 
@@ -738,6 +738,12 @@ class ImportScripts::Drupal < ImportScripts::Base
   def import_muted_users
     puts '', 'importing muted users'
 
+    total_count = mysql_query(<<~SQL).first['count']
+      SELECT COUNT(*) count
+      FROM pm_block_user
+    SQL
+    count = 0
+
     batches(BATCH_SIZE) do |offset|
       rows = mysql_query(<<-SQL).to_a
         SELECT author, recipient
@@ -749,6 +755,8 @@ class ImportScripts::Drupal < ImportScripts::Base
       break if rows.empty?
 
       rows.each do |row|
+        print_status(count += 1, total_count, get_start_time('muted'))
+
         next unless user_id = user_id_from_imported_user_id(row['author'])
         next unless muted_user_id = user_id_from_imported_user_id(row['recipient'])
 
