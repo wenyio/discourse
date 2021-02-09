@@ -76,6 +76,10 @@ class Invite < ActiveRecord::Base
     expires_at < Time.zone.now
   end
 
+  def link
+    "#{Discourse.base_url}/invites/#{invite_key}"
+  end
+
   # link_valid? indicates whether the invite link can be used to log in to the site
   def link_valid?
     invalidated_at.nil?

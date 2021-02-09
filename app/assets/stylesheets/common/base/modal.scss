@@ -709,3 +709,80 @@
     width: 10%;
   }
 }
+
+.create-invite-modal {
+  .input-group {
+    margin-bottom: 1em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    input[type="text"] {
+      width: 100%;
+
+      &.invite-link {
+        width: 85%;
+      }
+    }
+  }
+
+  .radio-group {
+    input[type="radio"] {
+      display: table-cell;
+      vertical-align: middle;
+      margin-top: -1px;
+    }
+
+    label {
+      display: inline-block;
+    }
+  }
+
+  .group-chooser,
+  .future-date-input-selector {
+    width: 100%;
+  }
+
+  .input-group input[type="text"],
+  .input-group .btn,
+  .future-date-input .select-kit-header,
+  .control-group:nth-child(2) input,
+  .control-group:nth-child(3) input {
+    height: 34px;
+  }
+
+  .input-group .btn {
+    vertical-align: top;
+  }
+
+  .future-date-input {
+    .date-picker-wrapper {
+      input {
+        margin: 0;
+      }
+    }
+
+    .control-group:nth-child(2),
+    .control-group:nth-child(3) {
+      display: inline-block;
+      margin-bottom: 0;
+      width: 49%;
+
+      input {
+        margin-bottom: 0;
+        width: 150px;
+      }
+    }
+  }
+
+  .invite-max-redemptions {
+    label {
+      display: inline;
+    }
+
+    input {
+      width: 80px;
+    }
+  }
+}

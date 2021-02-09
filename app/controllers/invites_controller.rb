@@ -84,82 +84,42 @@ class InvitesController < ApplicationController
   end
 
   def create
-    params.require(:email)
+    groups = Group.lookup_groups(group_ids: params[:group_ids], group_names: params[:group_names])
 
-    groups = Group.lookup_groups(
-      group_ids: params[:group_ids],
-      group_names: params[:group_names]
-    )
-
-    guardian.ensure_can_invite_to_forum!(groups)
-    group_ids = groups.map(&:id)
-
-    if Invite.exists?(email: params[:email])
-      return render json: failed_json, status: 422
+    if params[:topic_id].present?
+      topic = Topic.find_by(id: params[:topic_id])
+      guardian.ensure_can_invite_to!(topic)
     end
 
-    begin
-      if Invite.invite_by_email(params[:email], current_user, nil, group_ids, params[:custom_message])
-        render json: success_json
-      else
-        render json: failed_json, status: 422
-      end
-    rescue Invite::UserExists, ActiveRecord::RecordInvalid => e
-      render json: { errors: [e.message] }, status: 422
-    end
-  end
+    if params[:email].present?
+      guardian.ensure_can_invite_to_forum!(groups)
 
-  def create_invite_link
-    params.permit(:email, :max_redemptions_allowed, :expires_at, :group_ids, :group_names, :topic_id)
-
-    is_single_invite = params[:email].present?
-    unless is_single_invite
-      guardian.ensure_can_send_invite_links!(current_user)
-    end
-
-    groups = Group.lookup_groups(
-      group_ids: params[:group_ids],
-      group_names: params[:group_names]
-    )
-    if !guardian.can_invite_to_forum?(groups)
-      raise StandardError.new I18n.t("invite.cant_invite_to_group")
-    end
-    group_ids = groups.map(&:id)
-
-    if is_single_invite
-      invite_exists = Invite.exists?(email: params[:email], invited_by_id: current_user.id)
-      if invite_exists && !guardian.can_send_multiple_invites?(current_user)
+      if Invite.exists?(email: params[:email])
         return render json: failed_json, status: 422
       end
 
-      if params[:topic_id].present?
-        topic = Topic.find_by(id: params[:topic_id])
-
-        if topic.present?
-          guardian.ensure_can_invite_to!(topic)
+      begin
+        if invite = Invite.invite_by_email(params[:email], current_user, nil, groups.map(&:id), params[:custom_message])
+          render json: success_json
         else
-          raise Discourse::InvalidParameters.new(:topic_id)
+          render json: failed_json, status: 422
         end
+      rescue Invite::UserExists, ActiveRecord::RecordInvalid => e
+        render json: { errors: [e.message] }, status: 422
       end
-    end
-
-    invite_link = if is_single_invite
-      Invite.generate_single_use_invite_link(params[:email], current_user, topic, group_ids)
     else
-      Invite.generate_multiple_use_invite_link(
+      guardian.ensure_can_send_invite_links!(current_user)
+
+      invite = Invite.generate_multiple_use_invite_link(
         invited_by: current_user,
         max_redemptions_allowed: params[:max_redemptions_allowed],
+        group_ids: groups.map(&:id),
+        topic_id: topic&.id,
         expires_at: params[:expires_at],
-        group_ids: group_ids
       )
+
+      render json: success_json
     end
-    if invite_link.present?
-      render_json_dump(invite_link)
-    else
-      render json: failed_json, status: 422
-    end
-  rescue => e
-    render json: { errors: [e.message] }, status: 422
   end
 
   def destroy
