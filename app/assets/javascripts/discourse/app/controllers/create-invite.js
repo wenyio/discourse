@@ -2,27 +2,45 @@ import copyText from "discourse/lib/copy-text";
 import Controller from "@ember/controller";
 import { action } from "@ember/object";
 import discourseComputed from "discourse-common/utils/decorators";
+import { getAbsoluteURL } from "discourse-common/lib/get-url";
 import { ajax } from "discourse/lib/ajax";
 import ModalFunctionality from "discourse/mixins/modal-functionality";
 import Group from "discourse/models/group";
 
 export default Controller.extend(ModalFunctionality, {
   onShow() {
+    let inviteKey = "";
+    for (let i = 0; i < 32; ++i) {
+      inviteKey += "0123456789abcdef"[Math.floor(Math.random() * 16)];
+    }
+
     this.setProperties({
       showAdvanced: false,
       showOnly: false,
-      type: "email",
+      type: "link",
       inviteId: null,
-      link: "",
+      inviteKey,
+      link: getAbsoluteURL(`/invites/${inviteKey}`),
       email: "",
       maxRedemptionsAllowed: 1,
       message: "",
       groupIds: [],
-      expiresAt: moment().add(1, "month").format("YYYY-MM-DD HH:mmZ"),
+      expiresAt: moment().add(1, "week").format("YYYY-MM-DD HH:mmZ"),
     });
 
     Group.findAll().then((groups) => {
       this.set("allGroups", groups.filterBy("automatic", false));
+    });
+  },
+
+  setInvite(invite) {
+    this.setProperties({
+      type: invite.email ? "email" : "link",
+      inviteId: invite.id,
+      link: invite.link,
+      email: invite.email,
+      maxRedemptionsAllowed: invite.max_redemptions_allowed,
+      expiresAt: invite.expires_at,
     });
   },
 
@@ -68,17 +86,26 @@ export default Controller.extend(ModalFunctionality, {
 
   @action
   saveInvite() {
-    ajax("/invites", {
-      type: "POST",
-      data: {
-        email: this.email,
-        max_redemptions_allowed: this.maxRedemptionsAllowed,
-        group_ids: this.groupIds,
-        expires_at: this.expiresAt,
-        message: this.message,
-      },
-    }).then((x) => {
-      console.log("result =", x);
-    });
+    const data = {
+      group_ids: this.groupIds,
+      expires_at: this.expiresAt,
+    };
+
+    if (!this.inviteId) {
+      data.invite_key = this.inviteKey;
+    }
+
+    if (this.type === "link") {
+      data.max_redemptions_allowed = this.maxRedemptionsAllowed;
+    } else if (this.type === "email") {
+      data.email = this.email;
+      data.message = this.message;
+    }
+
+    const promise = this.inviteId
+      ? ajax(`/invites/${this.inviteId}`, { type: "PUT", data })
+      : ajax("/invites", { type: "POST", data });
+
+    promise.then((result) => this.setInvite(result.invite));
   },
 });

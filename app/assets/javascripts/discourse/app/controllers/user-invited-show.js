@@ -97,29 +97,16 @@ export default Controller.extend({
 
   @action
   editInvite(invite) {
-    showModal("create-invite").setProperties({
-      showAdvanced: true,
-      type: invite.email ? "email" : "link",
-      inviteId: invite.id,
-      link: invite.link,
-      email: invite.email,
-      maxRedemptionsAllowed: invite.max_redemptions_allowed,
-      expiresAt: invite.expires_at,
-    });
+    const controller = showModal("create-invite");
+    controller.setProperties({ showAdvanced: true });
+    controller.setInvite(invite);
   },
 
   @action
   showInviteLink(invite) {
-    showModal("create-invite").setProperties({
-      showAdvanced: true,
-      showOnly: true,
-      type: invite.email ? "email" : "link",
-      inviteId: invite.id,
-      link: invite.link,
-      email: invite.email,
-      maxRedemptionsAllowed: invite.max_redemptions_allowed,
-      expiresAt: invite.expires_at,
-    });
+    const controller = showModal("create-invite");
+    controller.setProperties({ showAdvanced: true, showOnly: true });
+    controller.setInvite(invite);
   },
 
   @action

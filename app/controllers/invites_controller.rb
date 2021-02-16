@@ -2,10 +2,7 @@
 
 class InvitesController < ApplicationController
 
-  requires_login only: [
-    :destroy, :create, :create_invite_link, :rescind_all_invites,
-    :resend_invite, :resend_all_invites, :upload_csv
-  ]
+  requires_login only: [:create, :destroy, :rescind_all_invites, :resend_invite, :resend_all_invites, :upload_csv]
 
   skip_before_action :check_xhr, except: [:perform_accept_invitation]
   skip_before_action :preload_json, except: [:show]
@@ -23,25 +20,82 @@ class InvitesController < ApplicationController
         invited_by: UserNameSerializer.new(invite.invited_by, scope: guardian, root: false),
         email: invite.email,
         username: UserNameSuggester.suggest(invite.email),
-        is_invite_link: invite.is_invite_link?)
-      )
+        is_invite_link: invite.is_invite_link?
+      ))
 
       render layout: 'application'
     else
-      flash.now[:error] = if invite.present? && invite.expired?
+      flash.now[:error] = if invite&.expired?
         I18n.t('invite.expired', base_url: Discourse.base_url)
-      elsif invite.present? && invite.redeemed?
+      elsif invite&.redeemed?
         I18n.t('invite.not_found_template', site_name: SiteSetting.title, base_url: Discourse.base_url)
       else
         I18n.t('invite.not_found', base_url: Discourse.base_url)
       end
+
       render layout: 'no_ember'
     end
+  end
+
+  def create
+    guardian.ensure_can_send_invite_links!(current_user) if params[:email].present?
+
+    if params[:email].present? && Invite.exists?(email: params[:email])
+      return render json: failed_json, status: 422
+    end
+
+    topic = Topic.find_by(id: params[:topic_id])
+    guardian.ensure_can_invite_to!(topic) if params[:topic_id].present?
+
+    groups = Group.lookup_groups(group_ids: params[:group_ids], group_names: params[:group_names])
+    guardian.ensure_can_invite_to_forum!(groups) if params[:group_ids].present? || params[:group_names].present?
+
+    begin
+      invite = Invite.generate(current_user,
+        invite_key: params[:invite_key],
+        email: params[:email],
+        invited_by: current_user,
+        custom_message: params[:custom_message],
+        max_redemptions_allowed: params[:max_redemptions_allowed],
+        topic_id: topic&.id,
+        group_ids: groups,
+        expires_at: params[:expires_at],
+      )
+
+      if invite.present?
+        render json: success_json.merge(invite: InviteSerializer.new(invite, scope: guardian, root: nil))
+      else
+        render json: failed_json, status: 422
+      end
+    rescue Invite::UserExists, ActiveRecord::RecordInvalid => e
+      render json: { errors: [e.message] }, status: 422
+    end
+  end
+
+  def update
+    invite = Invite.find_by(invited_by: current_user, id: params[:id])
+    raise Discourse::InvalidParameters.new(:id) if invite.blank?
+
+    # TODO
+
+    render json: success_json
+  end
+
+  def destroy
+    params.require(:id)
+
+    invite = Invite.find_by(invited_by_id: current_user.id, id: params[:id])
+    raise Discourse::InvalidParameters.new(:id) if invite.blank?
+
+    invite.trash!(current_user)
+
+    render json: success_json
   end
 
   def perform_accept_invitation
     params.require(:id)
     params.permit(:email, :username, :name, :password, :timezone, user_custom_fields: {})
+
     invite = Invite.find_by(invite_key: params[:id])
 
     if invite.present?
@@ -81,55 +135,6 @@ class InvitesController < ApplicationController
     else
       render json: { success: false, message: I18n.t('invite.not_found_json') }
     end
-  end
-
-  def create
-    groups = Group.lookup_groups(group_ids: params[:group_ids], group_names: params[:group_names])
-
-    if params[:topic_id].present?
-      topic = Topic.find_by(id: params[:topic_id])
-      guardian.ensure_can_invite_to!(topic)
-    end
-
-    if params[:email].present?
-      guardian.ensure_can_invite_to_forum!(groups)
-
-      if Invite.exists?(email: params[:email])
-        return render json: failed_json, status: 422
-      end
-
-      begin
-        if invite = Invite.invite_by_email(params[:email], current_user, nil, groups.map(&:id), params[:custom_message])
-          render json: success_json
-        else
-          render json: failed_json, status: 422
-        end
-      rescue Invite::UserExists, ActiveRecord::RecordInvalid => e
-        render json: { errors: [e.message] }, status: 422
-      end
-    else
-      guardian.ensure_can_send_invite_links!(current_user)
-
-      invite = Invite.generate_multiple_use_invite_link(
-        invited_by: current_user,
-        max_redemptions_allowed: params[:max_redemptions_allowed],
-        group_ids: groups.map(&:id),
-        topic_id: topic&.id,
-        expires_at: params[:expires_at],
-      )
-
-      render json: success_json
-    end
-  end
-
-  def destroy
-    params.require(:id)
-
-    invite = Invite.find_by(invited_by_id: current_user.id, id: params[:id])
-    raise Discourse::InvalidParameters.new(:id) if invite.blank?
-    invite.trash!(current_user)
-
-    render json: success_json
   end
 
   def rescind_all_invites
@@ -193,15 +198,7 @@ class InvitesController < ApplicationController
     end
   end
 
-  def fetch_username
-    params.require(:username)
-    params[:username]
-  end
-
-  def fetch_email
-    params.require(:email)
-    params[:email]
-  end
+  private
 
   def ensure_new_registrations_allowed
     unless SiteSetting.allow_new_registrations
@@ -218,8 +215,6 @@ class InvitesController < ApplicationController
       false
     end
   end
-
-  private
 
   def post_process_invite(user)
     user.enqueue_welcome_message('welcome_invite') if user.send_welcome_message
