@@ -40,6 +40,10 @@ class PostTiming < ActiveRecord::Base
     # still happen, if it happens we just don't care, its an invalid record anyway
     return if row_count == 0
     Post.where(['topic_id = :topic_id and post_number = :post_number', args]).update_all 'reads = reads + 1'
+
+    topic = Topic.select(:archetype).find_by(id: args[:topic_id])
+    return if topic&.archetype == Archetype.private_message
+
     UserStat.where(user_id: args[:user_id]).update_all 'posts_read_count = posts_read_count + 1'
   end
 
